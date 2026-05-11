@@ -5,12 +5,14 @@ const state = {
   history: [],
   draftImages: [],
   ruleImages: [],
+  analysisTimer: null,
+  analysisStepTimer: null,
+  uploadTimer: null,
 };
 
 const views = {
   reviewView: "设计稿审核",
   knowledgeView: "知识库",
-  historyView: "审核历史",
   settingsView: "数据管理",
 };
 
@@ -78,6 +80,14 @@ function switchView(viewId) {
   $("#pageTitle").textContent = views[viewId];
 }
 
+function showElement(selector) {
+  $(selector).classList.remove("is-hidden");
+}
+
+function hideElement(selector) {
+  $(selector).classList.add("is-hidden");
+}
+
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -121,8 +131,8 @@ function tokenize(text) {
     .filter(Boolean);
 }
 
-function calculateMatches({ projectName, brief }) {
-  const text = `${projectName} ${brief}`.toLowerCase();
+function calculateMatches({ brief }) {
+  const text = `${brief}`.toLowerCase();
   const tokens = tokenize(text);
 
   return state.rules
@@ -164,6 +174,9 @@ function buildReport(formData) {
 }
 
 function renderReport(report) {
+  hideElement("#analysisPanel");
+  hideElement("#historyInlinePanel");
+  showElement("#reportPanel");
   $("#scoreText").textContent = `${report.score}%`;
   $("#scoreBar").value = report.score;
   const riskLevel = $("#riskLevel");
@@ -213,29 +226,47 @@ function parseBulkRule(row) {
 }
 
 function renderRules() {
-  $("#ruleList").innerHTML = state.rules.length
-    ? state.rules.map(renderRuleCard).join("")
-    : `<p class="empty">暂无知识条目。可以先载入示例或新增一条意见。</p>`;
+  const rows = state.rules.length ? state.rules.map(renderRuleRow).join("") : renderDemoRuleRow();
+  $("#ruleList").innerHTML = `
+    <div class="rule-table-head">
+      <span>图</span>
+      <span>意见内容</span>
+      <span>姓名</span>
+    </div>
+    <div class="rule-table-body">${rows}</div>
+  `;
 }
 
-function renderRuleCard(rule) {
-  const images = (rule.images || [])
-    .slice(0, 4)
-    .map((src) => `<figure class="thumb"><img src="${src}" alt="参考图片" /></figure>`)
-    .join("");
+function renderRuleImageCell(rule) {
+  const image = (rule.images || [])[0];
+  if (image) {
+    return `<figure class="table-thumb"><img src="${image}" alt="参考图片" /></figure>`;
+  }
+  return `<div class="table-thumb empty-thumb">无图</div>`;
+}
 
+function renderRuleRow(rule) {
   return `
-    <article class="rule-card">
-      <h4>${escapeHtml(getRuleLeader(rule))}</h4>
-      <div class="rule-meta">
-        <span class="tag">领导姓名</span>
+    <article class="rule-row">
+      <div>${renderRuleImageCell(rule)}</div>
+      <div class="rule-opinion-cell">
+        <p>${escapeHtml(getRuleContent(rule))}</p>
+        <button class="danger-button small-button" data-delete-rule="${rule.id}">删除</button>
       </div>
-      <p>${escapeHtml(getRuleContent(rule))}</p>
-      <div class="image-strip">${images}</div>
-      <footer>
-        <span class="empty">${new Date(rule.createdAt).toLocaleString("zh-CN")}</span>
-        <button class="danger-button" data-delete-rule="${rule.id}">删除</button>
-      </footer>
+      <div class="rule-leader-cell">${escapeHtml(getRuleLeader(rule))}</div>
+    </article>
+  `;
+}
+
+function renderDemoRuleRow() {
+  return `
+    <article class="rule-row demo-card">
+      <div><div class="table-thumb demo-thumb">示意图</div></div>
+      <div class="rule-opinion-cell">
+        <p>示意：主视觉利益点不够突出，需要先看到价格和活动机制。</p>
+        <span class="empty">新增意见后，这里会替换成真实反馈列表。</span>
+      </div>
+      <div class="rule-leader-cell">张总</div>
     </article>
   `;
 }
@@ -246,7 +277,7 @@ function renderHistory() {
         .map(
           (item) => `
             <article class="history-card">
-              <h4>${escapeHtml(item.projectName)}</h4>
+              <h4>${escapeHtml(item.projectName || "设计稿审核记录")}</h4>
               <div class="rule-meta">
                 <span class="tag">${escapeHtml(item.result === "pass" ? "通过" : "需调整")}</span>
                 <span class="tag">审核得分：${item.score}%</span>
@@ -260,13 +291,60 @@ function renderHistory() {
           `,
         )
         .join("")
-    : `<p class="empty">还没有审核历史。</p>`;
+    : `
+      <article class="history-card demo-card">
+        <h4>示意：设计稿审核记录</h4>
+        <div class="rule-meta">
+          <span class="tag">需调整</span>
+          <span class="tag">审核得分：76%</span>
+          <span class="tag">匹配知识：2 条</span>
+        </div>
+        <p>真实审核后，这里会记录输入目标、审核结果和匹配到的知识库数量。</p>
+      </article>
+    `;
 }
 
 function resetRuleForm() {
   $("#ruleForm").reset();
   state.ruleImages = [];
   renderImages($("#rulePreview"), state.ruleImages);
+}
+
+function resetReview() {
+  if (state.analysisTimer) {
+    window.clearTimeout(state.analysisTimer);
+    state.analysisTimer = null;
+  }
+  if (state.analysisStepTimer) {
+    window.clearInterval(state.analysisStepTimer);
+    state.analysisStepTimer = null;
+  }
+  $("#reviewForm").reset();
+  state.draftImages = [];
+  renderImages($("#draftPreview"), state.draftImages);
+  setReviewReady(false);
+  setUploadState($("#draftImages"), "idle");
+  hideElement("#analysisPanel");
+  hideElement("#reportPanel");
+  hideElement("#historyInlinePanel");
+}
+
+function setReviewReady(isReady) {
+  const button = $("#reviewSubmitBtn");
+  button.disabled = !isReady;
+  button.classList.toggle("is-ready", isReady);
+}
+
+function setUploadState(input, stateName) {
+  const zone = input.closest(".upload-zone");
+  if (!zone) return;
+  zone.classList.toggle("is-uploading", stateName === "uploading");
+  zone.classList.toggle("is-uploaded", stateName === "uploaded");
+  const label = zone.querySelector("[data-upload-label]");
+  if (!label) return;
+  if (stateName === "uploading") label.textContent = "上传中...";
+  if (stateName === "uploaded") label.textContent = "上传完成";
+  if (stateName === "idle") label.textContent = "上传设计稿";
 }
 
 function refresh() {
@@ -316,6 +394,58 @@ function setCopyButtonText(text) {
   }, 1400);
 }
 
+function openRuleModal() {
+  showElement("#ruleModal");
+  window.setTimeout(() => $("#ruleLeader").focus(), 40);
+}
+
+function closeRuleModal() {
+  hideElement("#ruleModal");
+}
+
+function startAnalysis(formData) {
+  if (state.analysisTimer) {
+    window.clearTimeout(state.analysisTimer);
+    state.analysisTimer = null;
+  }
+  hideElement("#reportPanel");
+  hideElement("#historyInlinePanel");
+  showElement("#analysisPanel");
+
+  const steps = [
+    "正在读取项目背景与知识库意见...",
+    "正在匹配领导历史反馈...",
+    "正在整理可执行的修改建议...",
+  ];
+  let index = 0;
+  $("#analysisText").textContent = steps[index];
+  if (state.analysisStepTimer) {
+    window.clearInterval(state.analysisStepTimer);
+  }
+  state.analysisStepTimer = window.setInterval(() => {
+    index = (index + 1) % steps.length;
+    $("#analysisText").textContent = steps[index];
+  }, 420);
+
+  state.analysisTimer = window.setTimeout(() => {
+    window.clearInterval(state.analysisStepTimer);
+    state.analysisStepTimer = null;
+    const report = buildReport(formData);
+    renderReport(report);
+    state.history.unshift({
+      ...formData,
+      score: report.score,
+      result: report.result,
+      matchCount: report.matches.length,
+      createdAt: new Date().toISOString(),
+    });
+    state.history = state.history.slice(0, 30);
+    saveState();
+    refresh();
+    state.analysisTimer = null;
+  }, 1350);
+}
+
 function bindEvents() {
   $$(".nav-item").forEach((item) => item.addEventListener("click", () => switchView(item.dataset.view)));
   $$("[data-view-target]").forEach((button) =>
@@ -323,13 +453,22 @@ function bindEvents() {
   );
 
   $("#draftImages").addEventListener("change", async (event) => {
+    setReviewReady(false);
+    setUploadState(event.target, "uploading");
     state.draftImages = await readImages(event.target.files);
     renderImages($("#draftPreview"), state.draftImages);
+    bounceUploadZone(event.target);
+    if (state.uploadTimer) window.clearTimeout(state.uploadTimer);
+    state.uploadTimer = window.setTimeout(() => {
+      setUploadState(event.target, state.draftImages.length ? "uploaded" : "idle");
+      setReviewReady(state.draftImages.length > 0);
+    }, 650);
   });
 
   $("#ruleImages").addEventListener("change", async (event) => {
     state.ruleImages = await readImages(event.target.files);
     renderImages($("#rulePreview"), state.ruleImages);
+    bounceUploadZone(event.target);
   });
 
   $("#ruleForm").addEventListener("submit", (event) => {
@@ -344,6 +483,7 @@ function bindEvents() {
     state.rules.unshift(rule);
     saveState();
     resetRuleForm();
+    closeRuleModal();
     refresh();
   });
 
@@ -371,27 +511,17 @@ function bindEvents() {
     state.rules = [...rules, ...state.rules];
     $("#bulkRules").value = "";
     saveState();
+    closeRuleModal();
     refresh();
   });
 
   $("#reviewForm").addEventListener("submit", (event) => {
     event.preventDefault();
+    if (!state.draftImages.length) return;
     const formData = {
-      projectName: $("#projectName").value.trim(),
       brief: $("#brief").value.trim(),
     };
-    const report = buildReport(formData);
-    renderReport(report);
-    state.history.unshift({
-      ...formData,
-      score: report.score,
-      result: report.result,
-      matchCount: report.matches.length,
-      createdAt: new Date().toISOString(),
-    });
-    state.history = state.history.slice(0, 30);
-    saveState();
-    renderHistory();
+    startAnalysis(formData);
   });
 
   $("#ruleList").addEventListener("click", (event) => {
@@ -413,12 +543,31 @@ function bindEvents() {
   $("#clearHistoryBtn").addEventListener("click", () => {
     state.history = [];
     saveState();
-    renderHistory();
+    refresh();
+  });
+
+  $("#toggleHistoryBtn").addEventListener("click", () => {
+    const historyPanel = $("#historyInlinePanel");
+    if (!historyPanel.classList.contains("is-hidden")) {
+      hideElement("#historyInlinePanel");
+      return;
+    }
+    hideElement("#analysisPanel");
+    hideElement("#reportPanel");
+    showElement("#historyInlinePanel");
+  });
+
+  $("#newReviewBtn").addEventListener("click", resetReview);
+
+  $("#openRuleModalBtn").addEventListener("click", openRuleModal);
+  $("#closeRuleModalBtn").addEventListener("click", closeRuleModal);
+  $("#ruleModal").addEventListener("click", (event) => {
+    if (event.target.id === "ruleModal") closeRuleModal();
   });
 
   $("#copySuggestionBtn").addEventListener("click", async () => {
     const text = $("#suggestionBox").textContent.trim();
-    if (!text || text === "暂无报告。") {
+    if (!text) {
       setCopyButtonText("暂无内容");
       return;
     }
@@ -438,6 +587,7 @@ function bindEvents() {
   $("#importFile").addEventListener("change", (event) => {
     const file = event.target.files[0];
     if (!file) return;
+    bounceUploadZone(event.target);
     const reader = new FileReader();
     reader.onload = () => {
       try {
@@ -454,6 +604,17 @@ function bindEvents() {
   });
 }
 
+function bounceUploadZone(input) {
+  const zone = input.closest(".upload-zone");
+  if (!zone) return;
+  zone.classList.remove("is-bouncing");
+  void zone.offsetWidth;
+  zone.classList.add("is-bouncing");
+  window.setTimeout(() => zone.classList.remove("is-bouncing"), 520);
+}
+
 bindEvents();
 loadState();
 refresh();
+setReviewReady(false);
+switchView("knowledgeView");

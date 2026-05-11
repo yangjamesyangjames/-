@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>设计稿审核助手</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">审</div>
+          <div>
+            <h1>设计稿审核</h1>
+            <p>意见知识库与 AI 审核台</p>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="主要功能">
+          <button class="nav-item is-active" data-view="reviewView" onclick="switchView('reviewView')">设计稿审核</button>
+          <button class="nav-item" data-view="knowledgeView" onclick="switchView('knowledgeView')">知识库</button>
+          <button class="nav-item" data-view="historyView" onclick="switchView('historyView')">审核历史</button>
+          <button class="nav-item" data-view="settingsView" onclick="switchView('settingsView')">数据管理</button>
+        </nav>
+
+        <div class="sidebar-panel">
+          <div class="metric-block">
+            <span class="metric-label">反馈意见</span>
+            <strong id="ruleCount">0</strong>
+          </div>
+          <div class="metric-block">
+            <span class="metric-label">审核次数</span>
+            <strong id="reviewCount">0</strong>
+          </div>
+          <span class="metric-label">本地保存，浏览器内可用</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <section class="topbar">
+          <div>
+            <p class="eyebrow">Design Review Knowledge Base</p>
+            <h2 id="pageTitle">设计稿审核</h2>
+          </div>
+          <div class="quick-actions">
+            <div class="summary-strip" aria-label="数据统计">
+              <span>共 <strong id="topRuleCount">0</strong> 条反馈意见</span>
+              <span>已审核 <strong id="topReviewCount">0</strong> 次</span>
+            </div>
+            <button class="ghost-button" id="loadSampleBtn">载入示例</button>
+            <button class="primary-button" data-view-target="knowledgeView" onclick="switchView('knowledgeView')">新增意见</button>
+          </div>
+        </section>
+
+        <section class="view is-visible" id="reviewView" aria-labelledby="pageTitle">
+          <div class="review-layout">
+            <form class="panel review-form" id="reviewForm">
+              <div class="panel-heading">
+                <div>
+                  <h3>上传待审核设计稿</h3>
+                  <p>填写项目背景并上传设计图，系统会按知识库输出审核意见。</p>
+                </div>
+              </div>
+
+              <label>
+                项目名称
+                <input id="projectName" type="text" placeholder="例如：618 活动主视觉第一版" required />
+              </label>
+
+              <label>
+                设计目标与需要重点检查的内容
+                <textarea id="brief" rows="5" placeholder="例如：重点检查品牌露出、促销利益点、文案层级、合规风险。"></textarea>
+              </label>
+
+              <label class="upload-zone" for="draftImages">
+                <input id="draftImages" type="file" accept="image/*" multiple />
+                <span>点击上传设计稿图片</span>
+                <small>支持多张 JPG / PNG，图片仅保存在本机浏览器</small>
+              </label>
+
+              <div class="image-strip" id="draftPreview"></div>
+
+              <button class="primary-button full" type="submit">审核</button>
+            </form>
+
+            <article class="panel report-panel">
+              <div class="panel-heading">
+                <div>
+                  <h3>AI 审核报告</h3>
+                  <p>基于知识库中的领导意见相似度生成。</p>
+                </div>
+                <span class="status-pill" id="riskLevel">待审核</span>
+              </div>
+
+              <div class="score-block">
+                <div>
+                  <span>审核得分</span>
+                  <strong id="scoreText">--</strong>
+                </div>
+                <progress id="scoreBar" value="0" max="100"></progress>
+              </div>
+
+              <div class="report-section">
+                <h4>审核意见</h4>
+                <ul class="finding-list" id="priorityFindings">
+                  <li class="empty">审核后显示需要调整或确认的问题。</li>
+                </ul>
+              </div>
+
+              <div class="report-section">
+                <h4>参考知识</h4>
+                <div class="reference-list" id="referenceList">
+                  <p class="empty">匹配到的老板意见和历史结论会在这里显示。</p>
+                </div>
+              </div>
+
+              <div class="report-section">
+                <div class="section-title-row">
+                  <h4>给设计同学的修改建议</h4>
+                  <button class="ghost-button small-button" id="copySuggestionBtn" type="button">复制文案</button>
+                </div>
+                <div class="suggestion-box" id="suggestionBox">暂无报告。</div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" id="knowledgeView" aria-labelledby="pageTitle">
+          <div class="knowledge-layout">
+            <form class="panel" id="ruleForm">
+              <div class="panel-heading">
+                <div>
+                  <h3>新增审核意见</h3>
+                  <p>把老板或合作方的反馈沉淀成可复用规则。</p>
+                </div>
+              </div>
+
+              <label>
+                领导姓名
+                <input id="ruleLeader" type="text" placeholder="例如：张总、王总、客户李经理" required />
+              </label>
+
+              <label>
+                意见内容
+                <textarea id="ruleContent" rows="6" placeholder="写清楚领导提出的问题、判断标准或修改结论。" required></textarea>
+              </label>
+
+              <label class="upload-zone compact" for="ruleImages">
+                <input id="ruleImages" type="file" accept="image/*" multiple />
+                <span>上传参考图片</span>
+                <small>可放过稿截图、修改前后对比图</small>
+              </label>
+
+              <div class="image-strip" id="rulePreview"></div>
+
+              <button class="primary-button full" type="submit">保存到知识库</button>
+
+              <div class="bulk-box">
+                <label>
+                  批量录入
+                  <textarea id="bulkRules" rows="8" placeholder="每行一条，例如：&#10;张总：主视觉利益点不够突出，需要先看到价格和活动机制&#10;王总：品牌露出太弱，Logo 和品牌色需要更明确"></textarea>
+                </label>
+                <button class="ghost-button full" id="bulkImportBtn" type="button">批量保存</button>
+              </div>
+            </form>
+
+            <div class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h3>知识库条目</h3>
+                  <p>全部领导意见列表。</p>
+                </div>
+              </div>
+
+              <div class="rule-list" id="ruleList"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="historyView" aria-labelledby="pageTitle">
+          <div class="panel">
+            <div class="panel-heading">
+              <div>
+                <h3>审核历史</h3>
+                <p>保存每次审核结果，方便复盘和继续补充知识库。</p>
+              </div>
+              <button class="ghost-button" id="clearHistoryBtn">清空历史</button>
+            </div>
+            <div class="history-list" id="historyList"></div>
+          </div>
+        </section>
+
+        <section class="view" id="settingsView" aria-labelledby="pageTitle">
+          <div class="settings-grid">
+            <div class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h3>数据导出</h3>
+                  <p>把知识库和审核历史导出为 JSON，便于备份或迁移。</p>
+                </div>
+              </div>
+              <button class="primary-button" id="exportBtn">导出全部数据</button>
+            </div>
+
+            <div class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h3>数据导入</h3>
+                  <p>导入之前导出的 JSON 文件，会覆盖当前本地数据。</p>
+                </div>
+              </div>
+              <label class="upload-zone compact" for="importFile">
+                <input id="importFile" type="file" accept="application/json" />
+                <span>选择 JSON 文件</span>
+                <small>导入后自动刷新页面数据</small>
+              </label>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <template id="imageTemplate">
+      <figure class="thumb">
+        <img alt="上传图片预览" />
+      </figure>
+    </template>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

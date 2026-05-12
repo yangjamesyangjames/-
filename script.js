@@ -13,7 +13,7 @@ const state = {
 const views = {
   reviewView: "设计稿审核",
   knowledgeView: "知识库",
-  settingsView: "数据管理",
+  historyView: "审核历史",
 };
 
 function createId() {
@@ -77,7 +77,6 @@ function loadState() {
 function switchView(viewId) {
   $$(".view").forEach((view) => view.classList.toggle("is-visible", view.id === viewId));
   $$(".nav-item").forEach((item) => item.classList.toggle("is-active", item.dataset.view === viewId));
-  $("#pageTitle").textContent = views[viewId];
 }
 
 function showElement(selector) {
@@ -175,7 +174,6 @@ function buildReport(formData) {
 
 function renderReport(report) {
   hideElement("#analysisPanel");
-  hideElement("#historyInlinePanel");
   showElement("#reportPanel");
   $("#scoreText").textContent = `${report.score}%`;
   $("#scoreBar").value = report.score;
@@ -232,6 +230,7 @@ function renderRules() {
       <span>图</span>
       <span>意见内容</span>
       <span>姓名</span>
+      <span>管理</span>
     </div>
     <div class="rule-table-body">${rows}</div>
   `;
@@ -248,12 +247,14 @@ function renderRuleImageCell(rule) {
 function renderRuleRow(rule) {
   return `
     <article class="rule-row">
-      <div>${renderRuleImageCell(rule)}</div>
+      <div class="rule-image-cell">${renderRuleImageCell(rule)}</div>
       <div class="rule-opinion-cell">
         <p>${escapeHtml(getRuleContent(rule))}</p>
-        <button class="danger-button small-button" data-delete-rule="${rule.id}">删除</button>
       </div>
       <div class="rule-leader-cell">${escapeHtml(getRuleLeader(rule))}</div>
+      <div class="rule-action-cell">
+        <button class="danger-button small-button" data-delete-rule="${rule.id}">删除</button>
+      </div>
     </article>
   `;
 }
@@ -261,12 +262,13 @@ function renderRuleRow(rule) {
 function renderDemoRuleRow() {
   return `
     <article class="rule-row demo-card">
-      <div><div class="table-thumb demo-thumb">示意图</div></div>
+      <div class="rule-image-cell"><div class="table-thumb demo-thumb">示意图</div></div>
       <div class="rule-opinion-cell">
         <p>示意：主视觉利益点不够突出，需要先看到价格和活动机制。</p>
         <span class="empty">新增意见后，这里会替换成真实反馈列表。</span>
       </div>
       <div class="rule-leader-cell">张总</div>
+      <div class="rule-action-cell"><span class="empty">--</span></div>
     </article>
   `;
 }
@@ -326,7 +328,6 @@ function resetReview() {
   setUploadState($("#draftImages"), "idle");
   hideElement("#analysisPanel");
   hideElement("#reportPanel");
-  hideElement("#historyInlinePanel");
 }
 
 function setReviewReady(isReady) {
@@ -354,20 +355,8 @@ function refresh() {
 }
 
 function renderStats() {
-  $("#ruleCount").textContent = state.rules.length;
-  $("#reviewCount").textContent = state.history.length;
   $("#topRuleCount").textContent = state.rules.length;
   $("#topReviewCount").textContent = state.history.length;
-}
-
-function download(filename, content, type) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 async function copyText(text) {
@@ -409,7 +398,6 @@ function startAnalysis(formData) {
     state.analysisTimer = null;
   }
   hideElement("#reportPanel");
-  hideElement("#historyInlinePanel");
   showElement("#analysisPanel");
 
   const steps = [
@@ -546,16 +534,8 @@ function bindEvents() {
     refresh();
   });
 
-  $("#toggleHistoryBtn").addEventListener("click", () => {
-    const historyPanel = $("#historyInlinePanel");
-    if (!historyPanel.classList.contains("is-hidden")) {
-      hideElement("#historyInlinePanel");
-      return;
-    }
-    hideElement("#analysisPanel");
-    hideElement("#reportPanel");
-    showElement("#historyInlinePanel");
-  });
+  $("#toggleHistoryBtn").addEventListener("click", () => switchView("historyView"));
+  $("#backHomeBtn").addEventListener("click", () => switchView("knowledgeView"));
 
   $("#newReviewBtn").addEventListener("click", resetReview);
 
@@ -579,29 +559,6 @@ function bindEvents() {
     }
   });
 
-  $("#exportBtn").addEventListener("click", () => {
-    const content = JSON.stringify({ rules: state.rules, history: state.history }, null, 2);
-    download(`设计稿审核知识库-${new Date().toISOString().slice(0, 10)}.json`, content, "application/json");
-  });
-
-  $("#importFile").addEventListener("change", (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    bounceUploadZone(event.target);
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const imported = JSON.parse(reader.result);
-        state.rules = Array.isArray(imported.rules) ? imported.rules : [];
-        state.history = Array.isArray(imported.history) ? imported.history : [];
-        saveState();
-        refresh();
-      } catch {
-        alert("导入失败：文件不是有效的 JSON。");
-      }
-    };
-    reader.readAsText(file);
-  });
 }
 
 function bounceUploadZone(input) {

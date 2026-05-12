@@ -10,60 +10,39 @@
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand">
-          <div class="brand-mark"><span>审</span></div>
-          <div>
-            <h1>设计稿审核</h1>
-            <p>意见知识库与 AI 审核台</p>
+          <div class="brand-left">
+            <div class="brand-mark"><span>审</span></div>
+            <div>
+              <h1>设计稿审核</h1>
+              <p>意见知识库与 AI 审核台</p>
+            </div>
+          </div>
+          <div class="brand-actions">
+            <button class="summary-icon-button" id="toggleHistoryBtn" type="button" aria-label="查看审核历史">
+              <span class="history-icon" aria-hidden="true"></span>
+            </button>
+            <div class="summary-strip" aria-label="数据统计">
+              <span>共 <strong id="topRuleCount">0</strong> 条反馈意见</span>
+              <span>已审核 <strong id="topReviewCount">0</strong> 次</span>
+            </div>
           </div>
         </div>
 
         <nav class="nav" aria-label="主要功能">
           <button class="nav-item" data-view="reviewView" onclick="switchView('reviewView')">设计稿审核</button>
           <button class="nav-item is-active" data-view="knowledgeView" onclick="switchView('knowledgeView')">知识库</button>
-          <button class="nav-item" data-view="settingsView" onclick="switchView('settingsView')">数据管理</button>
         </nav>
-
-        <div class="sidebar-panel">
-          <div class="metric-block">
-            <span class="metric-label">反馈意见</span>
-            <strong id="ruleCount">0</strong>
-          </div>
-          <div class="metric-block">
-            <span class="metric-label">审核次数</span>
-            <strong id="reviewCount">0</strong>
-          </div>
-          <span class="metric-label">本地保存，浏览器内可用</span>
-        </div>
       </aside>
 
       <main class="workspace">
-        <section class="topbar">
-          <div>
-            <p class="eyebrow">Design Review Knowledge Base</p>
-            <h2 id="pageTitle">知识库</h2>
-          </div>
-          <div class="quick-actions">
-            <div class="summary-strip" aria-label="数据统计">
-              <button class="summary-icon-button" id="toggleHistoryBtn" type="button" aria-label="查看审核历史">
-                <span class="history-icon" aria-hidden="true"></span>
-              </button>
-              <span>共 <strong id="topRuleCount">0</strong> 条反馈意见</span>
-              <span>已审核 <strong id="topReviewCount">0</strong> 次</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="view" id="reviewView" aria-labelledby="pageTitle">
+        <section class="view" id="reviewView">
           <div class="review-layout">
             <form class="review-form" id="reviewForm">
               <div class="review-form-heading">
                 <h3>上传设计稿</h3>
               </div>
 
-              <label>
-                输入目标
-                <textarea id="brief" rows="6" placeholder="例如：重点检查品牌露出、促销利益点、文案层级、合规风险。"></textarea>
-              </label>
+              <textarea id="brief" rows="6" placeholder="输入目标：如重点检查品牌露出、促销利益点、文案层级、合规风险。"></textarea>
 
               <label class="upload-zone" for="draftImages">
                 <input id="draftImages" type="file" accept="image/*" multiple />
@@ -127,21 +106,11 @@
                 </div>
               </article>
 
-              <article class="panel history-inline-panel is-hidden" id="historyInlinePanel">
-                <div class="panel-heading">
-                  <div>
-                    <h3>审核历史</h3>
-                    <p>最近 30 次审核记录。</p>
-                  </div>
-                  <button class="ghost-button small-button" id="clearHistoryBtn">清空历史</button>
-                </div>
-                <div class="history-list" id="historyList"></div>
-              </article>
             </div>
           </div>
         </section>
 
-        <section class="view is-visible" id="knowledgeView" aria-labelledby="pageTitle">
+        <section class="view is-visible" id="knowledgeView">
           <div class="knowledge-list-layout">
             <div class="panel">
               <div class="panel-heading">
@@ -159,34 +128,24 @@
           </div>
         </section>
 
-        <section class="view" id="settingsView" aria-labelledby="pageTitle">
-          <div class="settings-grid">
+        <section class="view" id="historyView">
+          <div class="knowledge-list-layout">
             <div class="panel">
               <div class="panel-heading">
                 <div>
-                  <h3>数据导出</h3>
-                  <p>把知识库和审核历史导出为 JSON，便于备份或迁移。</p>
+                  <h3>审核历史</h3>
+                  <p>最近 30 次审核记录。</p>
+                </div>
+                <div class="panel-actions">
+                  <button class="ghost-button small-button" id="backHomeBtn" type="button">返回首页</button>
+                  <button class="ghost-button small-button" id="clearHistoryBtn" type="button">清空历史</button>
                 </div>
               </div>
-              <button class="primary-button" id="exportBtn">导出全部数据</button>
-            </div>
-
-            <div class="panel">
-              <div class="panel-heading">
-                <div>
-                  <h3>数据导入</h3>
-                  <p>导入之前导出的 JSON 文件，会覆盖当前本地数据。</p>
-                </div>
-              </div>
-              <label class="upload-zone compact" for="importFile">
-                <input id="importFile" type="file" accept="application/json" />
-                <span class="upload-icon" aria-hidden="true"></span>
-                <span>选择 JSON 文件</span>
-                <small>导入后自动刷新页面数据</small>
-              </label>
+              <div class="history-list" id="historyList"></div>
             </div>
           </div>
         </section>
+
       </main>
     </div>
 
